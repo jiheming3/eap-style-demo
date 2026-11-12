@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3000",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/provider.test.ts tests/agents.test.ts tests/demo-tools.test.ts",
+    "test": "node --experimental-strip-types --test tests/provider.test.ts tests/agents.test.ts tests/demo-tools.test.ts tests/orchestration.test.ts",
     "test:integration": "node --experimental-strip-types --test tests/integration.test.ts"
   },
   "dependencies": {

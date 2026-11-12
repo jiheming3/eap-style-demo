@@ -9,7 +9,6 @@ type Runtime = { fingerprint: string; checkedAt: string | null; saving: boolean 
 const globalConfig = globalThis as typeof globalThis & { eapConfigRuntime?: Runtime };
 const runtime = globalConfig.eapConfigRuntime ??= { fingerprint: "", checkedAt: null, saving: false };
 const configPath = path.join(process.cwd(), ".env.local");
-
 function readEnv(source: string) {
   const values: Record<string, string> = {};
   for (const line of source.split(/\r?\n/)) {

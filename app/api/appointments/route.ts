@@ -5,13 +5,10 @@ import { createDemoContext, executeDemoTool } from "@/lib/demo-tools";
 import { commitAssistantEvent, lockWorkspace, requireSession, serialize, workspace } from "@/lib/store";
 import type { DemoBooking } from "@/lib/demo-types";
 import type { Message } from "@/lib/types";
+import { slotTime } from "@/lib/appointment-time";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function bookingTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "long", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
-}
 
 export async function POST(request: Request) {
   let release: (() => void) | undefined;
@@ -38,7 +35,7 @@ export async function POST(request: Request) {
     const assistant: Message = {
       id: randomUUID(),
       role: "assistant",
-      content: `预约成功。已为你预约${booking.expertName}，${bookingTime(booking.startsAt)}，${booking.format}。你可以在下方预约卡片中查看。`,
+      content: `预约成功。已为你预约${booking.expertName}，${slotTime(booking)}，${booking.format}。你可以在下方预约卡片中查看。`,
       createdAt: new Date().toISOString(),
       model: "deterministic-card-action",
       attachments: executed.attachments,

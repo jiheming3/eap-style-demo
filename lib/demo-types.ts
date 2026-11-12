@@ -38,12 +38,32 @@ export type DemoExerciseState = {
   id: string; title: string; status: "active" | "completed" | "stopped";
   stepIndex: number; totalSteps: number; prompt: string; isDemo: true;
 };
-export type DemoAttachment =
+export type MatchingCriteria = {
+  topic: string; date: string; timeStart: string; timeEnd: string; format: ConsultationFormat;
+  gender?: "女" | "男"; maxPrice?: number;
+};
+export type AvailabilityCriteria = Partial<MatchingCriteria> & { dateEnd?: string };
+export type AvailabilityOption = Pick<DemoSlot, "startsAt" | "endsAt" | "format">;
+export type TaskStatus = "active" | "waiting_input" | "waiting_confirmation" | "paused" | "completed" | "cancelled";
+export type TaskLocalState = {
+  matching?: { criteria: AvailabilityCriteria; batch: number; status: "collecting" | "presented" | "selected" | "closed"; expertIds: string[]; selectedExpertId?: string; attachmentId?: string };
+  appointment?: { expertId?: string; slotId?: string; bookingId?: string; status: "selecting" | "waiting_confirmation" | "completed" };
+  customerService?: { orderId?: string; waitingConfirmation?: boolean };
+};
+export type AgentTask = {
+  id: string; agent: AgentId; instruction: string; status: TaskStatus;
+  createdAt: string; updatedAt: string; messageIds: string[]; localState: TaskLocalState;
+};
+export type TaskLedger = { schemaVersion: 1; tasks: AgentTask[]; lastAgents: AgentId[]; lastTurnId?: string };
+export type AttachmentScope = { turnId: string; taskId: string; agent: AgentId; purpose: string; status: "current" | "superseded" };
+export type DemoAttachment = (
+  | { id: string; kind: "availability"; criteria: AvailabilityCriteria; options: AvailabilityOption[] }
   | { id: string; kind: "orders"; orders: DemoOrder[] }
-  | { id: string; kind: "experts"; experts: DemoExpert[]; criteria?: { topic: string; date: string; format: ConsultationFormat }; batch?: number; hasMore?: boolean }
+  | { id: string; kind: "experts"; experts: DemoExpert[]; criteria?: MatchingCriteria; batch?: number; hasMore?: boolean }
   | { id: string; kind: "bookings"; bookings: DemoBooking[] }
   | { id: string; kind: "resource"; resource: DemoResource }
-  | { id: string; kind: "exercise"; exercise: DemoExerciseState };
+  | { id: string; kind: "exercise"; exercise: DemoExerciseState }
+) & { scope?: AttachmentScope };
 
 export type DemoAccount = {
   sessions: Session[];
@@ -57,4 +77,9 @@ export type DemoContext = {
   baseVersion: number; dirty: boolean; storageRoot: string;
   initialPendingAction?: { action: "book" | "move" | "cancel" | "refund"; targetId: string; slotId?: string };
   approvedAction?: { action: "book" | "move" | "cancel" | "refund"; targetId: string; slotId?: string };
+  currentExperts?: Extract<DemoAttachment, { kind: "experts" }>;
+  ledger?: TaskLedger;
+  taskId?: string;
+  matchingCriteria?: AvailabilityCriteria;
+  selectedExpertId?: string;
 };

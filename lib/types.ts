@@ -1,10 +1,12 @@
-import type { AgentId, DemoAttachment } from "./demo-types.ts";
+import type { AgentId, DemoAttachment, TaskLedger } from "./demo-types.ts";
 
 export type AgentTrace = {
   agent: "main" | AgentId;
   label: string;
   status: "running" | "done" | "error";
   tools?: string[];
+  taskId?: string;
+  context?: { level: number; reason: string; messageIds: string[]; estimatedTokens: number; truncated: boolean };
 };
 export type Rating = "good" | "adjust";
 export type Message = {
@@ -16,6 +18,7 @@ export type Message = {
   truncated?: boolean;
   attachments?: DemoAttachment[];
   trace?: AgentTrace[];
+  agentResponses?: { agent: AgentId; taskId: string; content: string }[];
 };
 export type Feedback = { rating: Rating; note: string; updatedAt: string };
 export type Session = {
@@ -26,6 +29,7 @@ export type Session = {
   updatedAt: string;
   messages: Message[];
   feedback: Record<string, Feedback>;
+  ledger?: TaskLedger;
 };
 export type ModelStatus = {
   model: string;

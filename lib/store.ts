@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { AppError } from "./errors.ts";
 import { getScenario } from "./scenarios.ts";
 import { createDemoContext, commitDemoContext } from "./demo-tools.ts";
+import { finishLedgerTurn } from "./task-ledger.ts";
 import type { DemoContext } from "./demo-types.ts";
 import type { Feedback, Message, Session } from "./types.ts";
 
@@ -26,7 +27,7 @@ export async function workspace() {
 }
 
 export function serialize(session: StoredSession): Session {
-  return structuredClone({ id: session.id, title: session.title, scenarioId: session.scenarioId, createdAt: session.createdAt, updatedAt: session.updatedAt, messages: session.messages, feedback: session.feedback });
+  return structuredClone({ id: session.id, title: session.title, scenarioId: session.scenarioId, createdAt: session.createdAt, updatedAt: session.updatedAt, messages: session.messages, feedback: session.feedback, ...(session.ledger ? { ledger: session.ledger } : {}) });
 }
 
 async function hydrate(owner: string) {
@@ -59,7 +60,7 @@ export async function createSession(owner: string, scenarioId: string | null) {
   try {
     const context = await hydrate(owner);
     const scenario = getScenario(scenarioId);
-    if (scenarioId && !scenario) throw new AppError("没有找到这个测试场景。");
+    if (scenarioId && !scenario) throw new AppError("没有找到这个对话话题。");
     const now = new Date().toISOString();
     const session: StoredSession = { id: randomUUID(), owner, busy: null, title: scenario?.title ?? "新的对话", scenarioId: scenario?.id ?? null, createdAt: now, updatedAt: now, messages: [], feedback: {} };
     await persistSession(session, serialize(session), context);
@@ -76,6 +77,7 @@ export async function requireSession(owner: string, id: unknown) {
 
 export async function commitTurn(session: StoredSession, user: Message, assistant: Message, context: DemoContext) {
   const next = serialize(session);
+  next.ledger = finishLedgerTurn(context, assistant);
   next.messages.push(user, assistant);
   if (next.title === "新的对话") next.title = user.content.slice(0, 18) + (user.content.length > 18 ? "…" : "");
   next.updatedAt = new Date().toISOString();
@@ -84,6 +86,7 @@ export async function commitTurn(session: StoredSession, user: Message, assistan
 
 export async function commitAssistantEvent(session: StoredSession, assistant: Message, context: DemoContext) {
   const next = serialize(session);
+  next.ledger = finishLedgerTurn(context, assistant);
   next.messages.push(assistant);
   next.updatedAt = new Date().toISOString();
   await persistSession(session, next, context);

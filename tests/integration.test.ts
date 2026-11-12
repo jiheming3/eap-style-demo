@@ -32,7 +32,7 @@ test("multi-agent app: scoped tools, mixed intent, history, isolation, failure a
     if (body.tools?.length && body.messages.at(-1).role !== "tool") {
       let calls;
       if (system.includes("你是客服智能体")) calls = mode === "composefail" ? [{ name: "request_duplicate_refund", arguments: '{"orderId":"ORD-1002"}' }] : [{ name: "get_my_profile", arguments: "{}" }, { name: "query_my_orders", arguments: "{}" }];
-      else if (system.includes("你是咨询师匹配智能体")) calls = [{ name: "search_experts", arguments: JSON.stringify({ topic: "工作压力", date: matchingDate, format: "线上咨询", gender: "女", maxPrice: 300 }) }];
+      else if (system.includes("你是咨询师匹配智能体")) calls = [{ name: "search_experts", arguments: JSON.stringify({ topic: "工作压力", date: matchingDate, timeStart: "18:00", timeEnd: "23:59", format: "线上咨询", gender: "女", maxPrice: 300 }) }];
       else calls = [{ name: "show_support_resource", arguments: '{"resourceId":"RES-101"}' }];
       response.setHeader("Content-Type", "application/json"); response.end(JSON.stringify({ choices: [{ finish_reason: "tool_calls", message: { content: null, tool_calls: calls.map((fn, i) => ({ id: `call-${requests.length}-${i}`, type: "function", function: fn })) } }] })); return;
     }
@@ -71,7 +71,8 @@ test("multi-agent app: scoped tools, mixed intent, history, isolation, failure a
   assert.equal((await call("/api/settings/check", "POST")).status, 200);
   const demo = await (await call("/api/demo")).json(); assert.ok(JSON.stringify(demo).includes("林晓"));
   const session = await (await call("/api/sessions", "POST", { scenarioId: "memory" })).json();
-  const first = await (await call("/api/chat", "POST", { sessionId: session.id, content: "预算300元以内，女咨询师，周五晚上。也看看我的订单，我还想聊聊。" })).text();
+  const firstQuery = `我想找女咨询师，${matchingDate}晚上线上聊工作压力，预算300元以内。也看看我的订单，我还想聊聊。`;
+  const first = await (await call("/api/chat", "POST", { sessionId: session.id, content: firstQuery })).text();
   assert.ok(first.includes('"type":"done"'), first); assert.ok(!first.includes("PRIVATE_REASONING"));
   const second = await (await call("/api/chat", "POST", { sessionId: session.id, content: "换成周六，预算不变。" })).text(); assert.ok(second.includes('"type":"done"'), second);
   const saved = await (await call(`/api/sessions/${session.id}`)).json(); assert.equal(saved.messages.length, 4);
@@ -80,7 +81,7 @@ test("multi-agent app: scoped tools, mixed intent, history, isolation, failure a
   assert.ok(saved.messages[1].attachments.some((a: { kind: string }) => a.kind === "resource"));
   assert.deepEqual(saved.messages[1].trace.filter((r: { agent: string }) => r.agent !== "main").map((r: { agent: string }) => r.agent), ["customer_service", "counselor_matching", "psychological_support"]);
   const routerHistory = requests.filter((r) => r.messages[0].content.includes("调度阶段")).at(-1)!.messages;
-  assert.equal(routerHistory[1].content, session.messages[0]?.content ?? "预算300元以内，女咨询师，周五晚上。也看看我的订单，我还想聊聊。");
+  assert.equal(routerHistory[1].content, session.messages[0]?.content ?? firstQuery);
   assert.equal(routerHistory.at(-1)!.content, "换成周六，预算不变。");
   const specialistRequests = requests.filter((r) => r.tools?.length);
   const customerTools = specialistRequests.find((r) => r.messages[0].content.includes("你是客服智能体"))!.tools!.map((t) => t.function.name);
@@ -114,6 +115,8 @@ test("multi-agent app: scoped tools, mixed intent, history, isolation, failure a
   assert.match(booked.session.messages.at(-1).content, /预约成功/);
   assert.equal(booked.session.messages.at(-1).trace[0].agent, "appointment");
   assert.equal(booked.session.messages.length, 5);
+  const staleCard = await call("/api/appointments", "POST", { sessionId: session.id, expertId: selected.id, slotId: selectedSlot.id });
+  assert.equal(staleCard.status, 409, "an old counselor card must not remain actionable after booking");
   const retry = await (await call("/api/chat", "POST", { sessionId: session.id, content: "重新发送" })).text(); assert.ok(retry.includes('"type":"done"'), retry);
   const beforeRestart = await (await call(`/api/sessions/${session.id}`)).json();
   const listBeforeRestart = await (await call("/api/sessions")).json();

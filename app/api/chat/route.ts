@@ -42,13 +42,13 @@ export async function POST(request: Request) {
           context.turnId = user.id;
           const result = await runAgents({ config, history: session.messages, content, context, signal, status: (agent, label) => emit({ type: "status", agent, label }) });
           signal.throwIfAborted();
-          const assistant: Message = { id: assistantId, role: "assistant", content: result.answer, createdAt: new Date().toISOString(), model: config.model, attachments: result.attachments, trace: result.trace };
+          const assistant: Message = { id: assistantId, role: "assistant", content: result.answer, createdAt: new Date().toISOString(), model: config.model, attachments: result.attachments, trace: result.trace, ...("agentResponses" in result ? { agentResponses: result.agentResponses } : {}) };
           await commitTurn(session, user, assistant, context);
           markVerified(config);
           emit({ type: "delta", text: result.answer });
           emit({ type: "done", session: serialize(session) });
         } catch (error) {
-          const message = signal.aborted ? "已停止或等待超时，未完成的本轮没有保存，可以重试。" : error instanceof AppError ? error.message : "本轮处理未完成，测试数据尚未保存，可以重试。";
+          const message = signal.aborted ? "已停止或等待超时，未完成的本轮没有保存，可以重试。" : error instanceof AppError ? error.message : "本轮处理未完成，本轮变更尚未保存，可以重试。";
           emit({ type: "error", message });
         } finally {
           abort.abort(); release?.();
